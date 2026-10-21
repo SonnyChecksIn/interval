@@ -18,6 +18,20 @@ namespace boost {
 namespace numeric {
 namespace interval_lib {
 
+namespace detail {
+// Read a floating operand back through a volatile object. Two square roots
+// of the same operand taken under different rounding modes must not be
+// merged by the optimiser; reading the operand afresh after the mode change
+// makes the second evaluation depend on a value the compiler cannot reuse.
+template<class T> inline T reload_operand(const T& x) { return x; }
+inline float reload_operand(const float& x)
+{ volatile float v = x; return v; }
+inline double reload_operand(const double& x)
+{ volatile double v = x; return v; }
+inline long double reload_operand(const long double& x)
+{ volatile long double v = x; return v; }
+} // namespace detail
+
 /*
  * Three classes of rounding: exact, std, opp
  * See documentation for details.
@@ -65,9 +79,13 @@ struct rounded_arith_std: Rounding {
   T div_up  (const T& x, const T& y) { BOOST_UP(x / y); }
   T median(const T& x, const T& y) { BOOST_NR((x + y) / 2); }
   T sqrt_down(const T& x)
-  { BOOST_NUMERIC_INTERVAL_using_math(sqrt); BOOST_DN(sqrt(x)); }
+  { BOOST_NUMERIC_INTERVAL_using_math(sqrt);
+    this->downward(); T y = detail::reload_operand(x);
+    return this->force_rounding(sqrt(y)); }
   T sqrt_up  (const T& x)
-  { BOOST_NUMERIC_INTERVAL_using_math(sqrt); BOOST_UP(sqrt(x)); }
+  { BOOST_NUMERIC_INTERVAL_using_math(sqrt);
+    this->upward(); T y = detail::reload_operand(x);
+    return this->force_rounding(sqrt(y)); }
   T int_down(const T& x) { this->downward(); return this->to_int(x); }
   T int_up  (const T& x) { this->upward();   return this->to_int(x); }
 # undef BOOST_DN
@@ -102,9 +120,14 @@ struct rounded_arith_opp: Rounding {
   T div_up  (const T& x, const T& y) { BOOST_UP(x / y); }
   T median  (const T& x, const T& y) { BOOST_NR((x + y) / 2); }
   T sqrt_down(const T& x)
-  { BOOST_NUMERIC_INTERVAL_using_math(sqrt); BOOST_DN(sqrt(x)); }
+  { BOOST_NUMERIC_INTERVAL_using_math(sqrt);
+    this->downward(); T y = detail::reload_operand(x);
+    T r = this->force_rounding(sqrt(y));
+    this->upward(); return r; }
   T sqrt_up  (const T& x)
-  { BOOST_NUMERIC_INTERVAL_using_math(sqrt); BOOST_UP(sqrt(x)); }
+  { BOOST_NUMERIC_INTERVAL_using_math(sqrt);
+    T y = detail::reload_operand(x);
+    return this->force_rounding(sqrt(y)); }
   T int_down(const T& x) { return -this->to_int(-x); }
   T int_up  (const T& x) { return  this->to_int(x); }
 # undef BOOST_DN
