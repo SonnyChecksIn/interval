@@ -21,7 +21,7 @@ $Records = [Collections.Generic.List[object]]::new()
 $Problems = [Collections.Generic.List[string]]::new()
 
 function Invoke-Recorded([string]$Executable, [string[]]$Arguments, [string]$Log) {
-  $command = @{ executable = $Executable; arguments = $Arguments; working_directory = (Get-Location).Path } | ConvertTo-Json -Compress
+  $command = [ordered]@{ executable = $Executable; arguments = $Arguments; working_directory = (Get-Location).Path } | ConvertTo-Json -Compress
   $command | Set-Content -LiteralPath ($Log + '.command.json') -Encoding utf8
   $lines = @(& $Executable @Arguments 2>&1)
   $code = $LASTEXITCODE
