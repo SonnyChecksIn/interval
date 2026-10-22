@@ -56,7 +56,18 @@ try {
     }
   }
   if ($env:VSCMD_ARG_TGT_ARCH -ne 'x86') { throw 'Visual Studio did not select x86.' }
-  $cc = if ($Compiler -eq 'msvc') { (Get-Command cl.exe).Source } else { (Get-Command clang-cl.exe).Source }
+  if ($Compiler -eq 'msvc') { $cc = (Get-Command cl.exe).Source }
+  else {
+    $clang = Get-Command clang-cl.exe -ErrorAction SilentlyContinue
+    if ($clang) { $cc = $clang.Source }
+    else {
+      $candidates = @((Join-Path $env:ProgramFiles 'LLVM/bin/clang-cl.exe'),
+                     (Join-Path $vs[0] 'VC/Tools/Llvm/x64/bin/clang-cl.exe'))
+      $found = @($candidates | Where-Object { Test-Path -LiteralPath $_ })
+      if ($found.Count -eq 0) { throw 'No installed clang-cl was found.' }
+      $cc = $found[0]
+    }
+  }
   $flags = @('/nologo','/EHsc','/W4','/fp:strict','/arch:SSE2')
   if ($Variant -eq 'debug') { $flags += @('/Od','/Ob0','/MDd') }
   else { $flags += @('/O2','/Ob2','/MD') }
