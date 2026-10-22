@@ -1,0 +1,40 @@
+name: PR61 Windows x86 comparison
+
+on:
+  push:
+    branches: [experiment/pr61-windows-x86]
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+        compiler: [msvc, clang-cl]
+        variant: [debug, release]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          path: source
+      - name: Compare the two reviewed headers
+        shell: pwsh
+        run: >-
+          & ./source/experiments/pr61-windows-x86/run.ps1
+          -Compiler '${{ matrix.compiler }}'
+          -Variant '${{ matrix.variant }}'
+          -OutputRoot "$env:GITHUB_WORKSPACE/results"
+      - name: Preserve logs even when enclosure fails
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pr61-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.variant }}
+          path: results/
+          if-no-files-found: error
+          retention-days: 14
